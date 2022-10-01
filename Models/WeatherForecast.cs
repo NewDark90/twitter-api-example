@@ -1,4 +1,4 @@
-namespace twitter_api_example;
+namespace TwitterApiExample.Models;
 
 public class WeatherForecast
 {

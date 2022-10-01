@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using TwitterApiExample.Models;
 
-namespace twitter_api_example.Controllers;
+namespace TwitterApiExample.Controllers;
 
 [ApiController]
 [Route("[controller]")]
