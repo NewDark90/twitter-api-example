@@ -162,9 +162,35 @@ public class TweetRepository : ITweetRespository
         return await GetTweetCountDb();
     }
 
-    public async Task<IList<string>> GetTopHashtags()
+    public async Task<IList<string>> GetTopHashtags(int top = 10)
     {
-        throw new NotImplementedException();
+        var tags = new List<string>();
+
+        using (var connection = new SqliteConnection("Data Source=:memory:"))
+        {
+            connection.Open();
+
+            var command = connection.CreateCommand();
+
+            command.CommandText =
+            @$"
+                SELECT ({HashtagCountTableHashtag}) 
+                FROM {HashtagCountTable}
+                ORDER BY {HashtagCountTableCount} DESC
+                LIMIT {top}
+            ";
+            var reader = await command.ExecuteReaderAsync();
+            while (reader.Read())
+            {
+                var hashtag = reader[HashtagCountTableHashtag]?.ToString() ?? "";
+                if (!String.IsNullOrEmpty(hashtag))
+                {
+                    tags.Add(hashtag);
+                }
+            }
+        }
+
+        return tags;
     }
 }
 
