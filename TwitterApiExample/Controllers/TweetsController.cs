@@ -24,6 +24,7 @@ public class TweetsController : ControllerBase
     public async Task<IEnumerable<Tweet>> GetAll()
     {
         //Could be a lot of data, probably dangerous if not paged :)
+        Logger.LogTrace($"{nameof(GetAll)} Request");
         return await TweetRepository.GetAll();
     }
 
@@ -32,6 +33,7 @@ public class TweetsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IEnumerable<HashtagCount>>> GetHashtagCount(int count = 10)
     {
+        Logger.LogTrace($"{nameof(GetHashtagCount)} Request");
         if (count <= 0)
             return BadRequest("Specified count should be more than 0");
 
@@ -41,6 +43,7 @@ public class TweetsController : ControllerBase
     [HttpGet("Count")]
     public async Task<long> GetCount()
     {
+        Logger.LogTrace($"{nameof(GetCount)} Request");
         return await TweetRepository.GetCount();
     }
 }

@@ -97,7 +97,7 @@ public class TweetRepository : ITweetRepository, IAsyncDisposable
                 var command = connection.CreateCommand();
                 command.CommandText =
                 @$"
-                    INSERT INTO {HashtagCountTable} VALUES ($hashtag, 1);
+                    INSERT INTO {HashtagCountTable} ({HashtagCountTableHashtag}, {HashtagCountTableCount}) VALUES ($hashtag, 1)
                     ON CONFLICT({HashtagCountTableHashtag}) DO 
                         UPDATE SET {HashtagCountTableCount} = {HashtagCountTableCount} + 1;
                 ";
@@ -214,7 +214,7 @@ public class TweetRepository : ITweetRepository, IAsyncDisposable
             while (reader.Read())
             {
                 tags.Add(new HashtagCount { 
-                    Count = ((long?)reader[HashtagCountTableHashtag]) ?? 0,
+                    Count = ((long?)reader[HashtagCountTableCount]) ?? 0,
                     Tag = reader[HashtagCountTableHashtag]?.ToString() ?? ""
                 });
             }

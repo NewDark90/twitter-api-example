@@ -34,17 +34,17 @@ public class TwitterStreamService: IHostedService
         {
             if (args?.Tweet is null)
             { 
-                Logger.LogWarning("Tweet doesn't exist on receive.", args.Json);
+                Logger.LogWarning($"Tweet doesn't exist on receive. {args?.Json}");
                 successiveMisses++;
                 if (successiveMisses >= maxMisses)
                 {
-                    throw new Exception($"{successiveMisses} tweets 'received' in a row but no tweet returned. Response: {args.Json}");
+                    throw new Exception($"{successiveMisses} tweets 'received' in a row but no tweet returned. Response: {args?.Json}");
                 }
                 return; 
             }
 
             successiveMisses = 0;
-            Logger.LogTrace("Tweet Received", args.Json);
+            Logger.LogTrace($"Tweet Received: {args.Tweet.Id}");
 
             TweetRepository.Save(new Models.Tweet()
             {
@@ -55,6 +55,7 @@ public class TwitterStreamService: IHostedService
             });
         };
 
+        //Don't await, as the app will never start
         _ = SampleStream.StartAsync();
     }
 

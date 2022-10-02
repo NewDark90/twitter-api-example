@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TwitterApiExample.Repositories;
@@ -59,13 +60,14 @@ public class TweetRepositoryTest
     {
         await UseRepo(nameof(Should_Order_Hashtags_Instances_By_Count), async (repo) =>
         {
-            await repo.Save(new Models.Tweet { Id = "Id1", AuthorId = "AuthorId2", Text = "Hi #There I'm doing super #grEAt" });
-            await repo.Save(new Models.Tweet { Id = "Id2", AuthorId = "AuthorId22", Text = "what is up #there folks! #dupe" });
-            await repo.Save(new Models.Tweet { Id = "Id3", AuthorId = "AuthorId222", Text = "#dupe #dupe #duPe #Dupe" });
+            await repo.Save(new Models.Tweet { Id = "Id1", AuthorId = "AuthorId2", Text = "Hi #There I'm doing super #grEAt", Hashtags = new List<string>() { "There", "grEAt" } });
+            await repo.Save(new Models.Tweet { Id = "Id2", AuthorId = "AuthorId22", Text = "what is up #there folks! #dupe", Hashtags = new List<string>() { "there", "dupe" } });
+            await repo.Save(new Models.Tweet { Id = "Id3", AuthorId = "AuthorId222", Text = "#dupe #dupe #duPe #Dupe", Hashtags = new List<string>() { "dupe", "dupe", "duPe", "Dupe" } });
 
             var tags = await repo.GetTopHashtags(10);
 
-            Assert.Equal(new List<string>() { "#dupe", "#there", "great" } , tags);
+            Assert.Equal(new List<string>() { "dupe", "there", "great" } , tags.Select(t => t.Tag));
+            Assert.Equal(new List<long>() { 5, 2, 1 }, tags.Select(t => t.Count));
         });
     }
 }
