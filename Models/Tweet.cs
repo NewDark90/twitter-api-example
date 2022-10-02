@@ -1,6 +1,4 @@
-﻿using TwitterSharp.Client;
-
-namespace TwitterApiExample.Models;
+﻿namespace TwitterApiExample.Models;
 
 public class Tweet
 {

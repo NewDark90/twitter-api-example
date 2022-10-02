@@ -1,22 +1,50 @@
-﻿using TwitterSharp;
-using TwitterSharp.Client;
+﻿using TwitterApiExample.Repositories;
+using Tweetinvi;
+using Tweetinvi.Streaming.V2;
 
 namespace TwitterApiExample.Services;
 
-public class TwitterStreamService<ITweetRespository> : IHostedService where ITweetRespository : new()
+public class TwitterStreamService: IHostedService
 {
-    //Would probably have this DI'd but not setting up a whole framework for it.
-    //The AddHostedService just takes a generic class, not an instance, so it isn't super easy to just instantiate one in there.
-    ITweetRespository TweetRespository { get; set; } = new();
-    TwitterClient TwitterClient { get; set; } = new();
+    ITweetRepository TweetRepository { get; set; }
+    ITwitterClient TwitterClient { get; set; }
+    ISampleStreamV2 SampleStream { get; set; }
+    ILogger Logger { get; set; }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public TwitterStreamService(
+        ITweetRepository tweetRepository,
+        ITwitterClient twitterClient,
+        ILogger logger
+        )
     {
+        TweetRepository = tweetRepository;
+        TwitterClient = twitterClient;
+        Logger = logger;
+        SampleStream = TwitterClient.StreamsV2.CreateSampleStream();
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        await TweetRepository.InitDb();
+
+        SampleStream.TweetReceived += (sender, args) =>
+        {
+            Logger.LogTrace("Tweet Received", args);
+
+            TweetRepository.Save(new Models.Tweet()
+            {
+                Id = args.Tweet.Id,
+                Text = args.Tweet.Text,
+                AuthorId = args.Tweet.AuthorId
+            });
+        };
+
+        await SampleStream.StartAsync();
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        SampleStream.StopStream();
     }
 }
 

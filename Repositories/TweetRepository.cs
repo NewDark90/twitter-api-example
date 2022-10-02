@@ -5,7 +5,7 @@ using TwitterApiExample.Models;
 
 namespace TwitterApiExample.Repositories;
 
-public class TweetRepository : ITweetRespository
+public class TweetRepository : ITweetRepository
 {
     private const string TweetTable = "tweets";
     private const string TweetTableId = "id";
@@ -29,7 +29,8 @@ public class TweetRepository : ITweetRespository
 
     }
 
-    private async Task CreateDb()
+
+    public async Task InitDb()
     {
         using (var connection = new SqliteConnection("Data Source=:memory:"))
         {
@@ -56,7 +57,7 @@ public class TweetRepository : ITweetRespository
 
     private async Task IncrementHashtagDb(Tweet tweet)
     {
-        var hashtags = HashtagRegex.Matches(tweet.Text).Select(m => m.Value).ToList();
+        var hashtags = HashtagRegex.Matches(tweet.Text ?? "").Select(m => m.Value).ToList();
 
         using (var connection = new SqliteConnection("Data Source=:memory:"))
         {
