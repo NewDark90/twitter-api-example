@@ -20,17 +20,17 @@ public class TweetsController : ControllerBase
         TweetRepository = tweetRepository;
     }
 
-    [HttpGet(Name = "")]
+    [HttpGet("")]
     public async Task<IEnumerable<Tweet>> GetAll()
     {
         //Could be a lot of data, probably dangerous if not paged :)
         return await TweetRepository.GetAll();
     }
 
-    [HttpGet(Name = "TopHashtags")]
+    [HttpGet("TopHashtags")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<IEnumerable<string>>> GetHashtagCount(int count = 10)
+    public async Task<ActionResult<IEnumerable<HashtagCount>>> GetHashtagCount(int count = 10)
     {
         if (count <= 0)
             return BadRequest("Specified count should be more than 0");
@@ -38,8 +38,8 @@ public class TweetsController : ControllerBase
         return Ok(await TweetRepository.GetTopHashtags(count));
     }
 
-    [HttpGet(Name = "Count")]
-    public async Task<int> GetCount()
+    [HttpGet("Count")]
+    public async Task<long> GetCount()
     {
         return await TweetRepository.GetCount();
     }

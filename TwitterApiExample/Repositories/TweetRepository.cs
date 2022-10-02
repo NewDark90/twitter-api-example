@@ -5,7 +5,7 @@ using TwitterApiExample.Models;
 
 namespace TwitterApiExample.Repositories;
 
-public class TweetRepository : ITweetRepository
+public class TweetRepository : ITweetRepository, IAsyncDisposable
 {
     private const string TweetTable = "tweets";
     private const string TweetTableId = "id";
@@ -19,20 +19,33 @@ public class TweetRepository : ITweetRepository
     //Slightly modified from here: https://stackoverflow.com/a/38383605/2283050
     //Is it perfect? Based on what I see on the internet, it takes a crazy amount of code to parse hashtags out of a tweet.
     //The minor fix is ensuring the tag either begins the tweet, or is proceeded by whitespace
-    private readonly Regex HashtagRegex = new(@"/(^|\s)#(\w*[0-9a-zA-Z]+\w*[0-9a-zA-Z])/g");
+    //private readonly Regex HashtagRegex = new(@"/(^|\s)#(\w*[0-9a-zA-Z]+\w*[0-9a-zA-Z])/g");
 
-    //Only setting this data store to be static as it would mimic a more permanent storage
-    //static List<Tweet> Tweets { get; set; } = new List<Tweet>();
+    private string ConnectionString { get; set; }
+    //Hold a connection to persist the memory database so it doesn't die until all repo instances are dead.
+    private SqliteConnection MasterConnection { get; set; }
 
     public TweetRepository()
+        : this("Data Source=TweetDB;Mode=Memory;Cache=Shared")
     {
+    }
 
+    public TweetRepository(string connectionString)
+    {
+        ConnectionString = connectionString;
+        MasterConnection = new(ConnectionString);
+        MasterConnection.Open();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await MasterConnection.CloseAsync();
     }
 
 
     public async Task InitDb()
     {
-        using (var connection = new SqliteConnection("Data Source=:memory:"))
+        using (var connection = new SqliteConnection(ConnectionString))
         {
             connection.Open();
             var command = connection.CreateCommand();
@@ -40,13 +53,13 @@ public class TweetRepository : ITweetRepository
             //Ideally hashtags would probably be in their own table with a many to many table linking them, but that's beyond the scope of a small demo like this.
             command.CommandText =
             @$"
-                CREATE TABLE {TweetTable}  (
+                CREATE TABLE IF NOT EXISTS {TweetTable}  (
                     {TweetTableId} TEXT NOT NULL PRIMARY KEY,
                     {TweetTableContents} TEXT NOT NULL,
                     {TweetTableAuthorId} TEXT NOT NULL
                 );
 
-                CREATE TABLE {HashtagCountTable}  (
+                CREATE TABLE IF NOT EXISTS {HashtagCountTable}  (
                     {HashtagCountTableHashtag} TEXT NOT NULL PRIMARY KEY,
                     {HashtagCountTableCount} INTEGER NOT NULL
                 );
@@ -55,14 +68,31 @@ public class TweetRepository : ITweetRepository
         }
     }
 
-    private async Task IncrementHashtagDb(Tweet tweet)
+    public async Task ClearDb()
     {
-        var hashtags = HashtagRegex.Matches(tweet.Text ?? "").Select(m => m.Value).ToList();
-
-        using (var connection = new SqliteConnection("Data Source=:memory:"))
+        using (var connection = new SqliteConnection(ConnectionString))
         {
             connection.Open();
-            foreach(var hashtag in hashtags)
+            var command = connection.CreateCommand();
+            //Is the hashtag count table the best way of handling this? Absolutely not.
+            //Ideally hashtags would probably be in their own table with a many to many table linking them, but that's beyond the scope of a small demo like this.
+            command.CommandText =
+            @$"
+                DELETE FROM {TweetTable};
+                DELETE FROM {HashtagCountTable};
+            ";
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    private async Task IncrementHashtagDb(Tweet tweet)
+    {
+        //var hashtags = HashtagRegex.Matches(tweet.Text ?? "").Select(m => m.Value).ToList();
+
+        using (var connection = new SqliteConnection(ConnectionString))
+        {
+            connection.Open();
+            foreach(var hashtag in tweet.Hashtags)
             {
                 var command = connection.CreateCommand();
                 command.CommandText =
@@ -79,7 +109,7 @@ public class TweetRepository : ITweetRepository
 
     private async Task SaveTweetDb(Tweet tweet)
     {
-        using (var connection = new SqliteConnection("Data Source=:memory:"))
+        using (var connection = new SqliteConnection(ConnectionString))
         {
             connection.Open();
 
@@ -101,7 +131,7 @@ public class TweetRepository : ITweetRepository
     {
         var tweets = new List<Tweet>();
 
-        using (var connection = new SqliteConnection("Data Source=:memory:"))
+        using (var connection = new SqliteConnection(ConnectionString))
         {
             connection.Open();
 
@@ -109,7 +139,7 @@ public class TweetRepository : ITweetRepository
 
             command.CommandText =
             @$"
-                SELECT ({TweetTableId}, {TweetTableContents}, {TweetTableAuthorId}) FROM {TweetTable}
+                SELECT {TweetTableId}, {TweetTableContents}, {TweetTableAuthorId} FROM {TweetTable}
             ";
             var reader = await command.ExecuteReaderAsync();
             while (reader.Read())
@@ -130,9 +160,9 @@ public class TweetRepository : ITweetRepository
         return tweets;
     }
 
-    private async Task<int> GetTweetCountDb()
+    private async Task<long> GetTweetCountDb()
     {
-        using (var connection = new SqliteConnection("Data Source=:memory:"))
+        using (var connection = new SqliteConnection(ConnectionString))
         {
             connection.Open();
 
@@ -142,7 +172,7 @@ public class TweetRepository : ITweetRepository
             @$"
                 SELECT COUNT(*) FROM {TweetTable}
             ";
-            return (int?)await command.ExecuteScalarAsync() ?? 0;
+            return (long?)await command.ExecuteScalarAsync() ?? 0;
         }
     }
 
@@ -158,16 +188,16 @@ public class TweetRepository : ITweetRepository
         return await GetAllTweetsDb();
     }
 
-    public async Task<int> GetCount()
+    public async Task<long> GetCount()
     {
         return await GetTweetCountDb();
     }
 
-    public async Task<IList<string>> GetTopHashtags(int top = 10)
+    public async Task<IList<HashtagCount>> GetTopHashtags(int top = 10)
     {
-        var tags = new List<string>();
+        var tags = new List<HashtagCount>();
 
-        using (var connection = new SqliteConnection("Data Source=:memory:"))
+        using (var connection = new SqliteConnection(ConnectionString))
         {
             connection.Open();
 
@@ -175,7 +205,7 @@ public class TweetRepository : ITweetRepository
 
             command.CommandText =
             @$"
-                SELECT ({HashtagCountTableHashtag}) 
+                SELECT {HashtagCountTableHashtag}, {HashtagCountTableCount}
                 FROM {HashtagCountTable}
                 ORDER BY {HashtagCountTableCount} DESC
                 LIMIT {top}
@@ -183,11 +213,10 @@ public class TweetRepository : ITweetRepository
             var reader = await command.ExecuteReaderAsync();
             while (reader.Read())
             {
-                var hashtag = reader[HashtagCountTableHashtag]?.ToString() ?? "";
-                if (!String.IsNullOrEmpty(hashtag))
-                {
-                    tags.Add(hashtag);
-                }
+                tags.Add(new HashtagCount { 
+                    Count = ((long?)reader[HashtagCountTableHashtag]) ?? 0,
+                    Tag = reader[HashtagCountTableHashtag]?.ToString() ?? ""
+                });
             }
         }
 

@@ -5,9 +5,9 @@ using Tweetinvi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<ITweetRepository, TweetRepository>();
-builder.Services.AddScoped<IReadOnlyConsumerCredentials, TwitterConsumerCredentials>();
-builder.Services.AddScoped<ITwitterClient, TwitterClient>();
+builder.Services.AddSingleton<ITweetRepository, TweetRepository>();
+builder.Services.AddSingleton<IReadOnlyConsumerCredentials, TwitterConsumerCredentials>();
+builder.Services.AddSingleton<ITwitterClient, TwitterClient>();
 builder.Services.AddHostedService<TwitterStreamService>();
 
 builder.Services.AddControllers();

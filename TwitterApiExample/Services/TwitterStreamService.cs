@@ -11,10 +11,13 @@ public class TwitterStreamService: IHostedService
     ISampleStreamV2 SampleStream { get; set; }
     ILogger Logger { get; set; }
 
+    private const int maxMisses = 4;
+    private int successiveMisses = 0;
+
     public TwitterStreamService(
         ITweetRepository tweetRepository,
         ITwitterClient twitterClient,
-        ILogger logger
+        ILogger<TwitterStreamService> logger
         )
     {
         TweetRepository = tweetRepository;
@@ -29,22 +32,36 @@ public class TwitterStreamService: IHostedService
 
         SampleStream.TweetReceived += (sender, args) =>
         {
-            Logger.LogTrace("Tweet Received", args);
+            if (args?.Tweet is null)
+            { 
+                Logger.LogWarning("Tweet doesn't exist on receive.", args.Json);
+                successiveMisses++;
+                if (successiveMisses >= maxMisses)
+                {
+                    throw new Exception($"{successiveMisses} tweets 'received' in a row but no tweet returned. Response: {args.Json}");
+                }
+                return; 
+            }
+
+            successiveMisses = 0;
+            Logger.LogTrace("Tweet Received", args.Json);
 
             TweetRepository.Save(new Models.Tweet()
             {
                 Id = args.Tweet.Id,
                 Text = args.Tweet.Text,
-                AuthorId = args.Tweet.AuthorId
+                AuthorId = args.Tweet.AuthorId,
+                Hashtags = args.Tweet.Entities?.Hashtags?.Select(h => h.Tag).ToList() ?? new List<string>()
             });
         };
 
-        await SampleStream.StartAsync();
+        _ = SampleStream.StartAsync();
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         SampleStream.StopStream();
+        await TweetRepository.DisposeAsync();
     }
 }
 
